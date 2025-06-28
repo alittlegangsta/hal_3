@@ -1,0 +1,141 @@
+# 测井数据分析项目配置文件
+
+# 数据路径配置
+data:
+  raw_data_path: "data/raw"
+  processed_data_path: "data/processed"
+  results_path: "data/results"
+  cast_file: "CAST.mat"
+  xsilmr03_file: "XSILMR03.mat"
+
+# 数据处理参数
+processing:
+  # 目标深度范围 (ft)
+  target_depth_min: 2732
+  target_depth_max: 4132
+  
+  # 第3号接收器深度偏移 (ft)
+  receiver_3_offset: 2.0  # 基准深度 + (7-3)*0.5
+  
+  # 高通滤波参数
+  highpass_filter:
+    cutoff_freq: 1000  # Hz
+    filter_order: 4
+    sampling_rate: 100000  # 1/dt, dt=1e-5
+  
+  # 标签生成参数
+  label_generation:
+    channeling_threshold: 2.5  # Zc < 2.5 认为是窜槽
+    depth_window_size: 0.5  # ft, ±0.25ft
+    azimuth_sectors:
+      A: [-22.5, 22.5]    # 度
+      B: [22.5, 67.5]
+      C: [67.5, 112.5]
+      D: [112.5, 157.5]
+      E: [157.5, 202.5]
+      F: [202.5, 247.5]
+      G: [247.5, 292.5]
+      H: [292.5, 337.5]
+
+# 特征提取参数
+features:
+  # 连续小波变换参数
+  cwt:
+    wavelet: 'morl'  # Morlet小波
+    scales: 64  # 尺度数量
+    sampling_period: 1e-5  # 采样周期 (s)
+  
+  # 统计特征列表
+  statistical_features:
+    - 'max_abs'      # 最大绝对幅值
+    - 'rms'          # 均方根幅值
+    - 'peak_time'    # 峰值到达时间
+    - 'skewness'     # 偏度
+    - 'kurtosis'     # 峰度
+    - 'dominant_freq' # 主频
+    - 'spectral_centroid'  # 频谱重心
+    - 'spectral_bandwidth' # 频谱带宽
+
+# 模型配置
+model:
+  # CNN图像分支参数
+  cnn_branch:
+    input_size: [64, 1024]  # [频率bins, 时间bins]
+    conv_layers:
+      - {out_channels: 32, kernel_size: [3, 3], stride: 1, padding: 1}
+      - {out_channels: 64, kernel_size: [3, 3], stride: 1, padding: 1}
+      - {out_channels: 128, kernel_size: [3, 3], stride: 1, padding: 1}
+    pool_size: [2, 2]
+    dropout_rate: 0.3
+  
+  # 数值特征分支参数
+  numerical_branch:
+    input_dim: 8  # 统计特征数量
+    hidden_layers: [64, 32]
+    dropout_rate: 0.2
+  
+  # 融合层参数
+  fusion:
+    hidden_dim: 128
+    output_dim: 1  # 回归输出
+    dropout_rate: 0.3
+
+# 训练配置
+training:
+  # 基础参数
+  batch_size: 32
+  learning_rate: 0.001
+  num_epochs: 100
+  
+  # 小样本测试参数 (用于快速验证)
+  small_sample:
+    enabled: false    # 禁用小样本模式，使用完整数据集
+    sample_size: 1000  # 每个方位的样本数
+    batch_size: 16
+    num_epochs: 10
+  
+  # 优化器参数
+  optimizer:
+    type: "Adam"
+    weight_decay: 0.0001
+  
+  # 学习率调度
+  scheduler:
+    type: "StepLR"
+    step_size: 30
+    gamma: 0.1
+  
+  # 验证参数
+  validation:
+    split_ratio: 0.2
+    random_seed: 42
+  
+  # 早停参数
+  early_stopping:
+    patience: 15
+    min_delta: 0.000001
+
+# 可视化配置
+visualization:
+  # Grad-CAM参数
+  grad_cam:
+    target_layer: "conv_layers.2"  # 目标卷积层
+    alpha: 0.4  # 热力图透明度
+  
+  # 绘图参数
+  plotting:
+    figure_size: [12, 8]
+    dpi: 150
+    font_size: 12
+    save_format: "png"
+
+# 日志配置
+logging:
+  level: "INFO"
+  save_logs: true
+  log_dir: "logs"
+
+# 设备配置
+device:
+  use_cuda: true   # 新环境支持A100 GPU
+  cuda_device: 0 
